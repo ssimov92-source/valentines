@@ -356,11 +356,10 @@ function initThreeDice(){
     );
 
     // clacks timed with the tumble
-    playClack();
-    setTimeout(playClack, 180);
-    setTimeout(playClack, 380);
-    setTimeout(playClack, 650);
-    setTimeout(() => { playClack(); showOverlayNumber(result); }, 1080);
+    setTimeout(playClack, 140);
+    setTimeout(playClack, 320);
+    setTimeout(playClack, 520);
+    setTimeout(() => { playClack(); showOverlayNumber(result); }, 900);
   }
 
   three = { rollAnimation };
@@ -368,6 +367,7 @@ function initThreeDice(){
 
 function rollDiceWith3D(result){
   initThreeDice();
+  playClack();
   if (three?.rollAnimation) three.rollAnimation(result);
 }
 
