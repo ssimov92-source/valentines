@@ -230,41 +230,81 @@ function initThreeDice(){
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50);
   camera.position.set(0, 0.6, 6);
 
-  // Lights (gothic purple)
-  const key = new THREE.DirectionalLight(0xe6d7ff, 1.1);
-  key.position.set(3, 4, 5);
+  // Lights (neon purple)
+  const key = new THREE.DirectionalLight(0xf2e6ff, 1.15);
+  key.position.set(3.5, 4.2, 6);
   scene.add(key);
 
-  const fill = new THREE.DirectionalLight(0xff77cc, 0.45);
-  fill.position.set(-4, 2, 3);
+  const fill = new THREE.DirectionalLight(0xb047ff, 0.65);
+  fill.position.set(-4.5, 1.8, 3.6);
   scene.add(fill);
 
-  const rim = new THREE.PointLight(0x9a6dff, 1.2, 30);
-  rim.position.set(0, -2, 2);
+  const rim = new THREE.PointLight(0x7b2cff, 1.4, 30);
+  rim.position.set(0, -2.6, 2.2);
   scene.add(rim);
 
   // D20 geometry (icosahedron)
   const geometry = new THREE.IcosahedronGeometry(1.25, 0);
 
-  // Slightly “arcane” material
+  // Neon purple + black dice
   const material = new THREE.MeshStandardMaterial({
-    color: 0x3b1a5a,
-    metalness: 0.55,
-    roughness: 0.26,
-    emissive: 0x120615,
-    emissiveIntensity: 0.9
+    color: 0x120814,
+    metalness: 0.85,
+    roughness: 0.18,
+    emissive: 0x5b1cff,
+    emissiveIntensity: 1.1
   });
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(0, 0, 0);
   scene.add(mesh);
 
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geometry),
+    new THREE.LineBasicMaterial({ color: 0xb455ff, linewidth: 1 })
+  );
+  mesh.add(edges);
+
+  // Liquid core
+  const liquidGeo = new THREE.IcosahedronGeometry(1.02, 1);
+  const liquidMat = new THREE.MeshPhysicalMaterial({
+    color: 0x7b2cff,
+    metalness: 0.1,
+    roughness: 0.25,
+    transmission: 0.6,
+    thickness: 0.8,
+    emissive: 0x3a0b7a,
+    emissiveIntensity: 0.9,
+    transparent: true,
+    opacity: 0.55
+  });
+  const liquid = new THREE.Mesh(liquidGeo, liquidMat);
+  liquid.position.set(0, -0.08, 0);
+  mesh.add(liquid);
+
+  // Number plane that sits on the upper face
+  const numberCanvas = document.createElement("canvas");
+  numberCanvas.width = 256;
+  numberCanvas.height = 256;
+  const numberCtx = numberCanvas.getContext("2d");
+  const numberTexture = new THREE.CanvasTexture(numberCanvas);
+  numberTexture.colorSpace = THREE.SRGBColorSpace;
+  const numberMat = new THREE.MeshBasicMaterial({
+    map: numberTexture,
+    transparent: true,
+    opacity: 0
+  });
+  const numberPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), numberMat);
+  numberPlane.position.set(0, 1.28, 0);
+  numberPlane.rotation.x = -Math.PI / 2;
+  mesh.add(numberPlane);
+
   // A subtle aura plane behind it
   const auraGeo = new THREE.PlaneGeometry(6, 6);
   const auraMat = new THREE.MeshBasicMaterial({
     color: 0x7a3cff,
     transparent: true,
-    opacity: 0.06
+    opacity: 0.08
   });
   const aura = new THREE.Mesh(auraGeo, auraMat);
   aura.position.set(0, 0, -3);
@@ -279,6 +319,7 @@ function initThreeDice(){
     fromRot: new THREE.Euler(0, 0, 0),
     toRot: new THREE.Euler(0, 0, 0)
   };
+  let numberOpacityTarget = 0;
 
   function onResize(){
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -295,6 +336,9 @@ function initThreeDice(){
       mesh.rotation.y += 0.003;
       mesh.rotation.x += 0.0015;
       aura.rotation.z += 0.0008;
+      liquid.rotation.x += 0.0022;
+      liquid.rotation.y += 0.0015;
+      liquid.position.y = -0.08 + Math.sin(ts * 0.002) * 0.05;
     } else {
       const t = Math.min(1, (ts - anim.start) / anim.duration);
       const ease = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
@@ -312,35 +356,36 @@ function initThreeDice(){
       if (t >= 1) anim.rolling = false;
     }
 
+    numberMat.opacity += (numberOpacityTarget - numberMat.opacity) * 0.12;
     renderer.render(scene, camera);
   }
   requestAnimationFrame(loop);
 
-  // overlay for the number “landing”
-  let overlay = document.querySelector(".diceResultOverlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.className = "diceResultOverlay";
-    overlay.textContent = "";
-    document.body.appendChild(overlay);
-  }
-
-  function showOverlayNumber(n){
-    overlay.textContent = String(n);
-    overlay.classList.add("show");
-    setTimeout(() => overlay.classList.remove("show"), 650);
+  function drawNumber(n){
+    if (!numberCtx) return;
+    numberCtx.clearRect(0, 0, numberCanvas.width, numberCanvas.height);
+    numberCtx.fillStyle = "rgba(0,0,0,0.0)";
+    numberCtx.fillRect(0, 0, numberCanvas.width, numberCanvas.height);
+    numberCtx.fillStyle = "#f6f0ff";
+    numberCtx.textAlign = "center";
+    numberCtx.textBaseline = "middle";
+    numberCtx.font = "900 140px 'Times New Roman', serif";
+    numberCtx.shadowColor = "rgba(120,45,255,0.85)";
+    numberCtx.shadowBlur = 24;
+    numberCtx.fillText(String(n), numberCanvas.width / 2, numberCanvas.height / 2 + 6);
+    numberTexture.needsUpdate = true;
   }
 
   function rollAnimation(result){
     // move across screen: start off to the side, end center-ish
     anim.rolling = true;
     anim.start = performance.now();
-    anim.duration = 1150;
+    anim.duration = 1250;
 
     // random start side for variety
     const side = (Math.random() < 0.5) ? -1 : 1;
-    anim.fromPos = new THREE.Vector3(1.9 * side, 1.2, 0);
-    anim.toPos   = new THREE.Vector3(0, -0.10, 0);
+    anim.fromPos = new THREE.Vector3(3.2 * side, 0.9, 0.4);
+    anim.toPos   = new THREE.Vector3(0, 0.35, 0);
 
     anim.fromRot = new THREE.Euler(
       Math.random() * Math.PI,
@@ -355,12 +400,15 @@ function initThreeDice(){
       (result % 3) * 0.25
     );
 
+    numberOpacityTarget = 0;
+    drawNumber(result);
+
     // clacks timed with the tumble
     playClack();
     setTimeout(playClack, 180);
     setTimeout(playClack, 380);
     setTimeout(playClack, 650);
-    setTimeout(() => { playClack(); showOverlayNumber(result); }, 1080);
+    setTimeout(() => { playClack(); numberOpacityTarget = 1; }, 1100);
   }
 
   three = { rollAnimation };
